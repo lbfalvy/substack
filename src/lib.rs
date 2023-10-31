@@ -23,12 +23,14 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
 
-/// A frame of [Substack] which contains an element and a reference to the
-/// rest of the stack.
+/// A frame of [Substack]
 #[derive(Clone, Copy)]
 pub struct Stackframe<'a, T> {
+  /// The item held in this frame
   pub item: T,
+  /// Lower stack frames
   pub prev: &'a Substack<'a, T>,
+  /// The length of the stack up to and including this layer
   pub len: usize,
 }
 
