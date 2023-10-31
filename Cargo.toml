@@ -1,0 +1,16 @@
+[package]
+name = "substack"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/lbfalvy/substack"
+description = """
+Stackbound iterable linked list for heap-free recursive algorithms
+"""
+authors = [
+  "Lawrence Bethlenfalvy <lbfalvy@protonmail.com>"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
