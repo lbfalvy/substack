@@ -9,7 +9,7 @@
 //!   match () {
 //!     () if alias_map[idx] == idx => Some(idx),
 //!     () if prev.iter().any(|i| *i == idx) => None,
-//!     () => find_value(alias_map, alias_map[idx], prev.push(idx))
+//!     () => find_value(alias_map, alias_map[idx], prev.push(idx)),
 //!   }
 //! }
 //!
@@ -102,6 +102,14 @@ impl<'a, T> Substack<'a, T> {
   {
     self.iter().unreverse()
   }
+
+  /// Visit all of the elements lowest first. This uses internal recursion, but
+  /// since the iterator itself fits on the stack it's very likely that the
+  /// reversed slices to it also will. If the callback is pure, these stack
+  /// frames should store a single reference to the corresponding item.
+  pub fn rfold<'b, U, F: FnMut(U, &'b T) -> U>(&'b self, default: U, mut callback: F) -> U {
+    self.iter().rfold_rec(default, &mut callback)
+  }
 }
 
 impl<'a, T: Debug> Debug for Substack<'a, T> {
@@ -129,6 +137,24 @@ impl<'a, T> SubstackIterator<'a, T> {
     }
     deque.into()
   }
+
+  fn rfold_rec<U>(mut self, default: U, callback: &mut impl FnMut(U, &'a T) -> U) -> U {
+    match self.next() {
+      None => default,
+      Some(t) => {
+        let rec = self.rfold_rec(default, callback);
+        callback(rec, t)
+      },
+    }
+  }
+
+  /// Visit all of the elements lowest first. This uses internal recursion, but
+  /// since the iterator itself fits on the stack it's very likely that the
+  /// reversed slices to it also will. If the callback is pure, these stack
+  /// frames should store a single reference to the corresponding item.
+  pub fn rfold<U, F: FnMut(U, &'a T) -> U>(self, default: U, mut callback: F) -> U {
+    self.rfold_rec(default, &mut callback)
+  }
 }
 
 impl<'a, T> Copy for SubstackIterator<'a, T> {}
@@ -146,9 +172,7 @@ impl<'a, T> Iterator for SubstackIterator<'a, T> {
     Some(item)
   }
 
-  fn size_hint(&self) -> (usize, Option<usize>) {
-    (self.curr.len(), Some(self.curr.len()))
-  }
+  fn size_hint(&self) -> (usize, Option<usize>) { (self.curr.len(), Some(self.curr.len())) }
 }
 
 #[cfg(test)]
@@ -156,11 +180,7 @@ mod test {
   use crate::Substack;
 
   // fill a stack with numbers from n to 0, then call the callback with it
-  fn descending_ints(
-    num: usize,
-    stack: Substack<usize>,
-    then: impl FnOnce(Substack<usize>),
-  ) {
+  fn descending_ints(num: usize, stack: Substack<usize>, then: impl FnOnce(Substack<usize>)) {
     match num {
       0 => then(stack.push(0)),
       n => descending_ints(n - 1, stack.push(n), then),
@@ -172,9 +192,11 @@ mod test {
     descending_ints(5, Substack::Bottom, |nums| {
       let rev_items = nums.iter().cloned().collect::<Vec<_>>();
       assert_eq!(rev_items, [0, 1, 2, 3, 4, 5], "iterator is reversed");
+      let asc_string = nums.rfold(String::new(), |s, d| s + &d.to_string());
+      assert_eq!(asc_string, "543210", "rfold visits in reverse order");
       assert_eq!(nums.len(), 6, "length is correct");
       assert!(!nums.is_empty(), "is not empty");
-      assert_eq!(nums.iter().unreverse(), [5, 4, 3, 2, 1, 0], "unreverse");
+      assert_eq!(nums.unreverse(), [5, 4, 3, 2, 1, 0], "unreverse");
       assert_eq!(nums.pop(0).value(), Some(&0), "popping none");
       assert_eq!(nums.pop(2).value(), Some(&2), "popping multiple");
       assert!(matches!(nums.pop(6), Substack::Bottom), "popping all");
@@ -194,10 +216,6 @@ mod test {
     let b = Substack::Bottom::<()>;
     assert_eq!(b.len(), 0, "length computes");
     assert!(b.is_empty(), "is empty");
-    assert_eq!(
-      b.pop(0).value(),
-      None,
-      "can pop nothing from empty without panic"
-    );
+    assert_eq!(b.pop(0).value(), None, "can pop nothing from empty without panic");
   }
 }
