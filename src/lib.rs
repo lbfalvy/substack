@@ -175,9 +175,38 @@ impl<'a, T> Iterator for SubstackIterator<'a, T> {
   fn size_hint(&self) -> (usize, Option<usize>) { (self.curr.len(), Some(self.curr.len())) }
 }
 
+/// Recursively walk an iterator, building a Substack from its items.
+///
+/// # Aborts
+///
+/// If the iterator is long, this will overflow the stack. Be very careful with
+/// calling it on iterators of unknown length, or in an already recursive
+/// context.
+pub fn with_iter_stack<T, I: IntoIterator<Item = T>, F: FnOnce(Substack<T>) -> U, U>(
+  iter: I,
+  callback: F,
+) -> U {
+  with_iter_stack_rec(iter.into_iter(), callback, Substack::Bottom)
+}
+
+/// # stack utilization
+///
+/// iter and callback are moved out, so the only items that remain on the stack
+/// are the function frame and substack
+fn with_iter_stack_rec<T, I: Iterator<Item = T>, F: FnOnce(Substack<T>) -> U, U>(
+  mut iter: I,
+  callback: F,
+  substack: Substack<T>,
+) -> U {
+  match iter.next() {
+    None => callback(substack),
+    Some(t) => with_iter_stack_rec(iter, callback, substack.push(t)),
+  }
+}
+
 #[cfg(test)]
 mod test {
-  use crate::Substack;
+  use crate::{Substack, with_iter_stack};
 
   // fill a stack with numbers from n to 0, then call the callback with it
   fn descending_ints(num: usize, stack: Substack<usize>, then: impl FnOnce(Substack<usize>)) {
@@ -217,5 +246,15 @@ mod test {
     assert_eq!(b.len(), 0, "length computes");
     assert!(b.is_empty(), "is empty");
     assert_eq!(b.pop(0).value(), None, "can pop nothing from empty without panic");
+  }
+
+  #[test]
+  fn with_iter() {
+    let output = with_iter_stack([1, 2, 3, 4], |substack| {
+      assert_eq!(substack.len(), 4);
+      assert_eq!(substack.iter().nth(2), Some(&2));
+      3
+    });
+    assert_eq!(output, 3);
   }
 }
