@@ -34,7 +34,7 @@ pub struct Stackframe<'a, T> {
   pub len: usize,
 }
 
-impl<'a, T> Deref for Stackframe<'a, T> {
+impl<T> Deref for Stackframe<'_, T> {
   type Target = T;
   fn deref(&self) -> &Self::Target { &self.item }
 }
@@ -112,7 +112,7 @@ impl<'a, T> Substack<'a, T> {
   }
 }
 
-impl<'a, T: Debug> Debug for Substack<'a, T> {
+impl<T: Debug> Debug for Substack<'_, T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "Substack")?;
     f.debug_list().entries(self.iter()).finish()
@@ -157,8 +157,8 @@ impl<'a, T> SubstackIterator<'a, T> {
   }
 }
 
-impl<'a, T> Copy for SubstackIterator<'a, T> {}
-impl<'a, T> Clone for SubstackIterator<'a, T> {
+impl<T> Copy for SubstackIterator<'_, T> {}
+impl<T> Clone for SubstackIterator<'_, T> {
   fn clone(&self) -> Self { *self }
 }
 
