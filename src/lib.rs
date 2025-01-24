@@ -206,7 +206,7 @@ fn with_iter_stack_rec<T, I: Iterator<Item = T>, F: FnOnce(Substack<T>) -> U, U>
 
 #[cfg(test)]
 mod test {
-  use crate::{Substack, with_iter_stack};
+  use crate::{with_iter_stack, Substack};
 
   // fill a stack with numbers from n to 0, then call the callback with it
   fn descending_ints(num: usize, stack: Substack<usize>, then: impl FnOnce(Substack<usize>)) {
